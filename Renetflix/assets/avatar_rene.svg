@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="reneBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E50914"/>
+      <stop offset="100%" stop-color="#800000"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="16" fill="url(#reneBg)"/>
+  <!-- Classic Netflix smiley face -->
+  <circle cx="34" cy="38" r="7" fill="#ffffff"/>
+  <circle cx="66" cy="38" r="7" fill="#ffffff"/>
+  <path d="M28 58 Q50 78 72 58" stroke="#ffffff" stroke-width="7" stroke-linecap="round" fill="none"/>
+</svg>

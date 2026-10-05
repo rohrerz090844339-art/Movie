@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="kidsBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00b4db"/>
+      <stop offset="100%" stop-color="#0083b0"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="16" fill="url(#kidsBg)"/>
+  <!-- Fun Kids avatar with stars -->
+  <circle cx="34" cy="38" r="8" fill="#ffd700"/>
+  <circle cx="66" cy="38" r="8" fill="#ffd700"/>
+  <circle cx="34" cy="38" r="4" fill="#000000"/>
+  <circle cx="66" cy="38" r="4" fill="#000000"/>
+  <path d="M26 56 Q50 82 74 56" stroke="#ffffff" stroke-width="7" stroke-linecap="round" fill="none"/>
+</svg>
