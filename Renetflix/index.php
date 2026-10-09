@@ -15,6 +15,7 @@ require_once __DIR__ . '/db.php';
 $isLoggedIn   = !empty($_SESSION['user_id']);
 $sessionUser  = $isLoggedIn ? $_SESSION['user_name']  ?? 'User'    : null;
 $sessionEmail = $isLoggedIn ? $_SESSION['user_email'] ?? ''        : null;
+$sessionAvatar = $isLoggedIn ? $_SESSION['user_avatar'] ?? 'assets/avatar_guest.svg' : 'assets/avatar_guest.svg';
 $sessionRole  = $isLoggedIn ? ($_SESSION['user_role'] ?? 'user')   : null;
 $isAdmin      = $isLoggedIn && $sessionRole === 'admin';
 
@@ -64,7 +65,7 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
     <link rel="apple-touch-icon" href="favicon.svg?v=2">
     
     
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=20261009">
 </head>
 <body>
 
@@ -84,12 +85,8 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                 <li class="nav-link"><a href="#rowSciFi">Sci-Fi</a></li>
                 <li class="nav-link"><a href="#rowComedy">Comedy</a></li>
                 <li class="nav-link"><a href="#myListRow">My List</a></li>
+                <li class="nav-link"><a href="#myFavoritesRow">Favorites</a></li>
                 <li class="nav-link"><a href="#faqSection">FAQ</a></li>
-                <?php if ($isAdmin): ?>
-                <li class="nav-link nav-admin-link">
-                    <a href="admin.php"><i class="fas fa-shield-alt"></i> Admin</a>
-                </li>
-                <?php endif; ?>
             </ul>
         </div>
 
@@ -116,14 +113,14 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
             
             <?php if (!$isLoggedIn): ?>
             <button class="btn-primary" id="navSignInBtn" style="padding: 6px 18px; font-size: 0.85rem; border-radius: 4px;" onclick="openAuthModal('login')">
-                <i class="fas fa-sign-in-alt"></i> Sign In
+                Login
             </button>
             <?php endif; ?>
 
             
             <div class="profile-menu-wrapper" id="navProfileWrapper">
                 <div class="profile-avatar-btn" id="profileAvatarBtn" title="<?= $isLoggedIn ? htmlspecialchars($sessionUser) : 'Browse Profiles' ?>">
-                    <img id="currentProfileAvatar" src="assets/avatar_rene.svg" alt="Profile" class="profile-avatar">
+                    <img id="currentProfileAvatar" src="<?= htmlspecialchars($sessionAvatar) ?>" alt="Profile" class="profile-avatar">
                     <i class="fas fa-caret-down" style="font-size: 0.8rem; color: #a3a3a3;"></i>
                 </div>
                 <div class="profile-dropdown" id="profileDropdownMenu">
@@ -131,48 +128,25 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                     
                     <div class="profile-dropdown-header">
                         <div style="display:flex;align-items:center;gap:10px;">
-                            <img src="assets/avatar_rene.svg" alt="<?= htmlspecialchars($sessionUser) ?>" style="width:38px;height:38px;border-radius:6px;border:2px solid var(--primary-red);">
+                            <img src="<?= htmlspecialchars($sessionAvatar) ?>" alt="<?= htmlspecialchars($sessionUser) ?>" style="width:38px;height:38px;border-radius:6px;border:2px solid var(--primary-red);">
                             <div>
-                                <div style="font-weight:700;color:#fff;font-size:0.95rem;"><?= htmlspecialchars($sessionUser) ?></div>
+                                <div id="profileMenuUserName" style="font-weight:700;color:#fff;font-size:0.95rem;"><?= htmlspecialchars($sessionUser) ?></div>
                                 <div style="font-size:0.75rem;color:var(--text-muted);"><?= htmlspecialchars($sessionEmail) ?></div>
                             </div>
                         </div>
                     </div>
                     <div class="profile-divider"></div>
+                    <button type="button" class="profile-option profile-edit-trigger" id="editProfileBtn">
+                        <i class="fas fa-user-edit" style="font-size: 1.05rem;"></i>
+                        <span>Customize Profile</span>
+                    </button>
                     <?php endif; ?>
 
-                    <div style="padding: 6px 16px 4px; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">
-                        Active Profile: <span id="currentProfileNameDisplay" style="color: var(--primary-red); font-weight: 800;">Rene</span>
-                    </div>
-                    <div id="dynamicProfileList">
-                        <div class="profile-option" onclick="switchProfile('Rene')">
-                            <img src="assets/avatar_rene.svg" alt="Rene">
-                            <span>Rene</span>
-                        </div>
-                        <div class="profile-option" onclick="switchProfile('Sherlyn')">
-                            <img src="assets/avatar_sherlyn.svg" alt="Sherlyn">
-                            <span>Sherlyn</span>
-                        </div>
-                        <div class="profile-option" onclick="switchProfile('Kids')">
-                            <img src="assets/avatar_kids.svg" alt="Kids">
-                            <span>Kids</span>
-                        </div>
-                        <div class="profile-option" onclick="switchProfile('Guest')">
-                            <img src="assets/avatar_guest.svg" alt="Guest">
-                            <span>Guest Mode</span>
-                        </div>
-                    </div>
-                    <div class="profile-divider"></div>
                     <?php if ($isAdmin): ?>
                     <a class="profile-option" href="admin.php" style="color: var(--primary-red);">
-                        <i class="fas fa-shield-alt" style="font-size: 1.05rem;"></i>
                         <span>Admin Dashboard</span>
                     </a>
                     <?php endif; ?>
-                    <a class="profile-option" href="http://localhost/phpmyadmin" target="_blank" style="color: #82aaff;">
-                        <i class="fas fa-database" style="font-size: 1.05rem;"></i>
-                        <span>phpMyAdmin</span>
-                    </a>
                     <div class="profile-divider"></div>
                     <?php if ($isLoggedIn): ?>
                     <div class="profile-option" id="menuSignOutBtn" onclick="handleLogout()" style="color: #ff4d4d;">
@@ -221,7 +195,7 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                 <button class="btn-secondary" onclick="openMovieDetails(<?= $featured['id'] ?>)">
                     <i class="fas fa-info-circle"></i> More Info
                 </button>
-                <button class="btn-icon-round" onclick="toggleWatchlist(<?= $featured['id'] ?>, this)" title="Add to My List">
+                <button class="btn-icon-round" data-watchlist-id="<?= $featured['id'] ?>" onclick="toggleWatchlist(<?= $featured['id'] ?>, this)" title="Add to My List">
                     <i class="fas fa-plus"></i>
                 </button>
             </div>
@@ -262,6 +236,18 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
             </div>
         </section>
 
+        <section class="row-container" id="myFavoritesRow" style="display: none;">
+            <div class="row-header">
+                <h2 class="row-title">
+                    <i class="fas fa-heart title-accent"></i> My Favorites
+                </h2>
+                <span class="row-explore">Your saved favorites</span>
+            </div>
+            <div class="slider-wrapper">
+                <div class="slider-track" id="myFavoritesTrack"></div>
+            </div>
+        </section>
+
         
         <section class="row-container" id="rowTop10">
             <div class="row-header">
@@ -295,10 +281,10 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                                             <button class="btn-mini-round play-btn" onclick="event.stopPropagation(); openCinemaPlayer(<?= $m['id'] ?>, '<?= addslashes($m['title']) ?>', '<?= htmlspecialchars($m['video_url']) ?>')" title="Play Free">
                                                 <i class="fas fa-play"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
+                                            <button class="btn-mini-round" data-watchlist-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
                                                 <i class="fas fa-plus"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); showToast('❤️ Added to your likes!')" title="Like">
+                                            <button class="btn-mini-round" data-favorite-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleFavorite(<?= $m['id'] ?>, this)" title="Add to Favorites">
                                                 <i class="far fa-thumbs-up"></i>
                                             </button>
                                         </div>
@@ -355,10 +341,10 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                                             <button class="btn-mini-round play-btn" onclick="event.stopPropagation(); openCinemaPlayer(<?= $m['id'] ?>, '<?= addslashes($m['title']) ?>', '<?= htmlspecialchars($m['video_url']) ?>')" title="Play Free">
                                                 <i class="fas fa-play"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
+                                            <button class="btn-mini-round" data-watchlist-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
                                                 <i class="fas fa-plus"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); showToast('❤️ Added to your likes!')" title="Like">
+                                            <button class="btn-mini-round" data-favorite-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleFavorite(<?= $m['id'] ?>, this)" title="Add to Favorites">
                                                 <i class="far fa-thumbs-up"></i>
                                             </button>
                                         </div>
@@ -413,10 +399,10 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                                             <button class="btn-mini-round play-btn" onclick="event.stopPropagation(); openCinemaPlayer(<?= $m['id'] ?>, '<?= addslashes($m['title']) ?>', '<?= htmlspecialchars($m['video_url']) ?>')" title="Play Free">
                                                 <i class="fas fa-play"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
+                                            <button class="btn-mini-round" data-watchlist-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
                                                 <i class="fas fa-plus"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); showToast('❤️ Added to your likes!')" title="Like">
+                                            <button class="btn-mini-round" data-favorite-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleFavorite(<?= $m['id'] ?>, this)" title="Add to Favorites">
                                                 <i class="far fa-thumbs-up"></i>
                                             </button>
                                         </div>
@@ -471,10 +457,10 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                                             <button class="btn-mini-round play-btn" onclick="event.stopPropagation(); openCinemaPlayer(<?= $m['id'] ?>, '<?= addslashes($m['title']) ?>', '<?= htmlspecialchars($m['video_url']) ?>')" title="Play Free">
                                                 <i class="fas fa-play"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
+                                            <button class="btn-mini-round" data-watchlist-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
                                                 <i class="fas fa-plus"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); showToast('❤️ Added to your likes!')" title="Like">
+                                            <button class="btn-mini-round" data-favorite-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleFavorite(<?= $m['id'] ?>, this)" title="Add to Favorites">
                                                 <i class="far fa-thumbs-up"></i>
                                             </button>
                                         </div>
@@ -529,10 +515,10 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                                             <button class="btn-mini-round play-btn" onclick="event.stopPropagation(); openCinemaPlayer(<?= $m['id'] ?>, '<?= addslashes($m['title']) ?>', '<?= htmlspecialchars($m['video_url']) ?>')" title="Play Free">
                                                 <i class="fas fa-play"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
+                                            <button class="btn-mini-round" data-watchlist-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
                                                 <i class="fas fa-plus"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); showToast('❤️ Added to your likes!')" title="Like">
+                                            <button class="btn-mini-round" data-favorite-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleFavorite(<?= $m['id'] ?>, this)" title="Add to Favorites">
                                                 <i class="far fa-thumbs-up"></i>
                                             </button>
                                         </div>
@@ -587,10 +573,10 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                                             <button class="btn-mini-round play-btn" onclick="event.stopPropagation(); openCinemaPlayer(<?= $m['id'] ?>, '<?= addslashes($m['title']) ?>', '<?= htmlspecialchars($m['video_url']) ?>')" title="Play Free">
                                                 <i class="fas fa-play"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
+                                            <button class="btn-mini-round" data-watchlist-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleWatchlist(<?= $m['id'] ?>, this)" title="Add to My List">
                                                 <i class="fas fa-plus"></i>
                                             </button>
-                                            <button class="btn-mini-round" onclick="event.stopPropagation(); showToast('❤️ Added to your likes!')" title="Like">
+                                            <button class="btn-mini-round" data-favorite-id="<?= $m['id'] ?>" onclick="event.stopPropagation(); toggleFavorite(<?= $m['id'] ?>, this)" title="Add to Favorites">
                                                 <i class="far fa-thumbs-up"></i>
                                             </button>
                                         </div>
@@ -680,7 +666,6 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
             </div>
         </div>
 
-        <!-- FAQ Call to Action & Ask Question -->
         <div class="faq-cta-box">
             <h3 style="font-size: 1.4rem; color: #ffffff;">Have questions or need movie assistance?</h3>
             <p style="color: #aaaaaa; max-width: 600px;">Call our free hotline or submit your question below to get instant answers from our support system.</p>
@@ -695,9 +680,6 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
         </div>
     </section>
 
-    <!-- ======================================================================
-         Netflix Movie Detail Modal
-         ====================================================================== -->
     <div class="modal-backdrop" id="movieDetailModal">
         <div class="netflix-modal">
             <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close modal">
@@ -715,7 +697,7 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                         <button class="btn-icon-round" id="modalWatchlistBtn" title="Add to My List">
                             <i class="fas fa-plus"></i>
                         </button>
-                        <button class="btn-icon-round" onclick="showToast('❤️ You liked this movie!')" title="Like">
+                        <button class="btn-icon-round" id="modalFavoriteBtn" title="Add to Favorites">
                             <i class="far fa-thumbs-up"></i>
                         </button>
                     </div>
@@ -723,7 +705,6 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
             </div>
 
             <div class="modal-body">
-                <!-- Meta Info & Synopsis -->
                 <div class="modal-grid">
                     <div class="modal-left">
                         <div class="billboard-meta">
@@ -752,7 +733,6 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                     </div>
                 </div>
 
-                <!-- Navigation Tabs inside Modal -->
                 <div class="modal-tabs">
                     <button class="modal-tab-btn active" data-tab="tabStream">
                         <i class="fas fa-film"></i> Free Direct Stream
@@ -768,7 +748,6 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                     </button>
                 </div>
 
-                <!-- Tab 1: Direct Video Stream -->
                 <div class="tab-pane active" id="tabStream">
                     <div class="video-embed-box">
                         <video id="modalDirectVideo" controls preload="metadata">
@@ -777,19 +756,16 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                     </div>
                 </div>
 
-                <!-- Tab 2: YouTube Trailer -->
                 <div class="tab-pane" id="tabTrailer">
                     <div class="video-embed-box">
                         <iframe id="modalTrailerIframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                     </div>
                 </div>
 
-                <!-- Tab 3: Similar Movies -->
                 <div class="tab-pane" id="tabSimilar">
                     <div class="similar-grid" id="modalSimilarContainer"></div>
                 </div>
 
-                <!-- Tab 4: Reviews & Community Ratings -->
                 <div class="tab-pane" id="tabReviews">
                     <div class="reviews-container">
                         <div class="review-form-box">
@@ -820,9 +796,6 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
         </div>
     </div>
 
-    <!-- ======================================================================
-         Dedicated Fullscreen Cinema Player Modal
-         ====================================================================== -->
     <div class="cinema-player-modal" id="cinemaPlayerModal">
         <div class="cinema-top-bar">
             <button class="cinema-back-btn" id="cinemaBackBtn">
@@ -842,14 +815,12 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
         </div>
 
         <div class="cinema-bottom-bar">
-            <!-- Progress Bar -->
             <div class="cinema-progress-container" id="cinemaProgressContainer">
                 <div class="cinema-progress-bar" id="cinemaProgressBar">
                     <div class="cinema-progress-thumb"></div>
                 </div>
             </div>
 
-            <!-- Controls Row -->
             <div class="cinema-controls-row">
                 <div class="controls-left">
                     <button class="cinema-ctrl-btn" id="cinemaPlayPauseBtn" title="Play / Pause">
@@ -862,7 +833,6 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                         <i class="fas fa-redo"></i>
                     </button>
                     
-                    <!-- Volume Controls -->
                     <div class="volume-slider-box">
                         <button class="cinema-ctrl-btn" id="cinemaVolumeBtn" title="Mute">
                             <i class="fas fa-volume-up"></i>
@@ -883,9 +853,6 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
         </div>
     </div>
 
-    <!-- ======================================================================
-         Admin / Add Movie Modal
-         ====================================================================== -->
     <div class="modal-backdrop" id="addMovieModal">
         <div class="netflix-modal" style="max-width: 650px;">
             <button class="modal-close-btn" id="closeAddMovieModalBtn">
@@ -983,13 +950,9 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
             </div>
 
             <div class="auth-panel active" data-auth-panel="login">
-                <div class="auth-quick-demos">
-                    <button type="button" class="btn-demo-login" data-demo-email="rene@renetflix.com" data-demo-password="password123">
-                        <i class="fas fa-user-circle"></i> Rene
-                    </button>
-                    <button type="button" class="btn-demo-login" data-demo-email="sherlyn@renetflix.com" data-demo-password="password123">
-                        <i class="fas fa-user-circle"></i> Sherlyn
-                    </button>
+                <div id="adminAuthNotice" style="display:none; margin: 0 0 16px; color: var(--text-secondary); text-align: center;">
+                    <strong style="display:block; color:#fff; margin-bottom:5px;">Admin Dashboard Sign In</strong>
+                    Enter your admin email and password to continue.
                 </div>
                 <form id="loginForm" data-auth-mode="login">
                     <div class="admin-form-group full-width">
@@ -1016,11 +979,42 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                     </div>
                     <div class="admin-form-group full-width">
                         <label>Password</label>
-                        <input type="password" name="password" class="admin-input" placeholder="Create a password" required>
+                        <input type="password" name="password" class="admin-input" placeholder="Create a password" minlength="8" required>
                     </div>
                     <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">Create Account</button>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="profileModal">
+        <div class="auth-box profile-editor-box">
+            <button class="modal-close-btn" id="closeProfileModal" aria-label="Close profile editor">
+                <i class="fas fa-times"></i>
+            </button>
+            <h2 class="profile-editor-title">Customize Profile</h2>
+            <p class="profile-editor-description">Update the name and avatar shown on your account.</p>
+            <form id="profileForm">
+                <div class="admin-form-group full-width">
+                    <label for="profileDisplayName">Profile name</label>
+                    <input id="profileDisplayName" type="text" name="name" class="admin-input" maxlength="100" required>
+                </div>
+                <fieldset class="avatar-picker">
+                    <legend>Choose an avatar</legend>
+                    <?php foreach ([
+                        'assets/avatar_rene.svg' => 'Rene avatar',
+                        'assets/avatar_sherlyn.svg' => 'Sherlyn avatar',
+                        'assets/avatar_kids.svg' => 'Kids avatar',
+                        'assets/avatar_guest.svg' => 'Guest avatar'
+                    ] as $avatarPath => $avatarLabel): ?>
+                    <label class="avatar-choice">
+                        <input type="radio" name="avatar" value="<?= htmlspecialchars($avatarPath) ?>">
+                        <img src="<?= htmlspecialchars($avatarPath) ?>" alt="<?= htmlspecialchars($avatarLabel) ?>">
+                    </label>
+                    <?php endforeach; ?>
+                </fieldset>
+                <button type="submit" class="btn-primary profile-save-btn">Save Profile</button>
+            </form>
         </div>
     </div>
 
@@ -1069,12 +1063,8 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
         </div>
     </div>
 
-    <!-- ======================================================================
-         Footer
-         ====================================================================== -->
     <footer class="footer" id="siteFooter">
         <div class="footer-inner">
-            <!-- Footer Brand -->
             <div class="footer-brand-section">
                 <a href="index.php" class="footer-logo">
                     <span class="logo-rene">RENE</span><span class="logo-tflix">TFLIX</span>
@@ -1088,7 +1078,6 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                 </div>
             </div>
 
-            <!-- Footer Nav Columns -->
             <div class="footer-columns">
                 <div class="footer-col">
                     <h4 class="footer-col-title">Navigate</h4>
@@ -1106,15 +1095,12 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                     <ul>
                         <?php if ($isLoggedIn): ?>
                         <li><a href="#" onclick="handleLogout();">Sign Out</a></li>
-                        <?php if ($isAdmin): ?>
-                        <li><a href="admin.php"><i class="fas fa-shield-alt" style="margin-right:5px;color:var(--primary-red);"></i>Admin Dashboard</a></li>
-                        <?php endif; ?>
                         <?php else: ?>
-                        <li><a href="#" onclick="openAuthModal('login')">Sign In</a></li>
+                        <li><a href="#" onclick="openAuthModal('login')">Login</a></li>
                         <li><a href="#" onclick="openAuthModal('register')">Register Free</a></li>
                         <?php endif; ?>
+                        <li><a href="admin.php" <?= $isAdmin ? '' : 'data-admin-login-link' ?>>Admin Dashboard</a></li>
                         <li><a href="#myListRow">My Watchlist</a></li>
-                        <li><a href="http://localhost/phpmyadmin" target="_blank">phpMyAdmin</a></li>
                     </ul>
                 </div>
                 <div class="footer-col">
@@ -1122,9 +1108,9 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
                     <ul>
                         <li><a href="#faqSection">FAQ</a></li>
                         <li><a href="#" onclick="openQuestionsModal()">Ask a Question</a></li>
-                        <li><a href="#">Help Center</a></li>
-                        <li><a href="#">Terms of Use</a></li>
-                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="info.php?page=help">Help Center</a></li>
+                        <li><a href="info.php?page=terms">Terms of Use</a></li>
+                        <li><a href="info.php?page=privacy">Privacy Policy</a></li>
                     </ul>
                 </div>
                 <div class="footer-col">
@@ -1138,22 +1124,13 @@ $movieFiles = glob(__DIR__ . '/Movies/*.{jpeg,jpg,png,webp,avif}', GLOB_BRACE);
             </div>
         </div>
 
-        <!-- Footer Bottom Bar -->
         <div class="footer-bottom-bar">
             <div class="footer-copy">
                 &copy; <?= date('Y') ?> <span style="color: var(--primary-red); font-weight: 700;">RENEtflix</span>. Free Movie Streaming Edition.
             </div>
-            <div class="db-status-badge">
-                <span class="db-status-dot"></span>
-                <span>MySQL (renetflix_db) &bull; XAMPP Active</span>
-            </div>
-            <div style="font-size:0.78rem;color:var(--text-muted);">
-                Powered by PHP &bull; MySQL &bull; XAMPP
-            </div>
         </div>
     </footer>
 
-    <!-- App JavaScript -->
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=20261009"></script>
 </body>
 </html>

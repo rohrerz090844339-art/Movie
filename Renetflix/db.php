@@ -58,10 +58,11 @@ try {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS watchlist (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            owner_user_id INT NOT NULL DEFAULT 0,
             user_profile VARCHAR(50) DEFAULT 'Rene',
             movie_id INT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY user_movie (user_profile, movie_id)
+            UNIQUE KEY owner_profile_movie (owner_user_id, user_profile, movie_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
@@ -98,6 +99,29 @@ try {
             active_profile VARCHAR(50) DEFAULT 'Rene',
             role VARCHAR(20) NOT NULL DEFAULT 'user',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    $watchlistColumns = $pdo->query("SHOW COLUMNS FROM watchlist")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('owner_user_id', $watchlistColumns, true)) {
+        $pdo->exec("ALTER TABLE watchlist ADD COLUMN owner_user_id INT NOT NULL DEFAULT 0 AFTER id");
+    }
+
+    $watchlistIndexes = $pdo->query("SHOW INDEX FROM watchlist")->fetchAll(PDO::FETCH_COLUMN, 2);
+    if (in_array('user_movie', $watchlistIndexes, true)) {
+        $pdo->exec("ALTER TABLE watchlist DROP INDEX user_movie");
+    }
+    if (!in_array('owner_profile_movie', $watchlistIndexes, true)) {
+        $pdo->exec("ALTER TABLE watchlist ADD UNIQUE KEY owner_profile_movie (owner_user_id, user_profile, movie_id)");
+    }
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS favorites (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            movie_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY user_favorite (user_id, movie_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 

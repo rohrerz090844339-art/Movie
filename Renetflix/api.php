@@ -44,9 +44,66 @@ try {
             ]);
             break;
 
+        case 'update_profile':
+            if (empty($_SESSION['user_id'])) {
+                echo json_encode(['status' => 'error', 'message' => 'Please sign in to customize your profile.']);
+                exit;
+            }
+
+            $name = trim($_POST['name'] ?? '');
+            $avatar = $_POST['avatar'] ?? '';
+            $allowedAvatars = [
+                'assets/avatar_rene.svg',
+                'assets/avatar_sherlyn.svg',
+                'assets/avatar_kids.svg',
+                'assets/avatar_guest.svg'
+            ];
+
+            if ($name === '' || strlen($name) > 100) {
+                echo json_encode(['status' => 'error', 'message' => 'Enter a profile name of 1 to 100 characters.']);
+                exit;
+            }
+            if (!in_array($avatar, $allowedAvatars, true)) {
+                echo json_encode(['status' => 'error', 'message' => 'Choose one of the available profile avatars.']);
+                exit;
+            }
+
+            $userId = (int) $_SESSION['user_id'];
+            $activeProfile = $_SESSION['active_profile'] ?? $name;
+            $pdo->beginTransaction();
+            try {
+                $updateUser = $pdo->prepare("UPDATE users SET name = ?, avatar = ? WHERE id = ?");
+                $updateUser->execute([$name, $avatar, $userId]);
+
+                $updateProfile = $pdo->prepare("UPDATE user_profiles SET avatar_url = ? WHERE user_id = ? AND profile_name = ?");
+                $updateProfile->execute([$avatar, $userId, $activeProfile]);
+
+                if ($updateProfile->rowCount() === 0) {
+                    $createProfile = $pdo->prepare("INSERT INTO user_profiles (user_id, profile_name, avatar_url, is_kids) VALUES (?, ?, ?, 0) ON DUPLICATE KEY UPDATE avatar_url = VALUES(avatar_url)");
+                    $createProfile->execute([$userId, $activeProfile, $avatar]);
+                }
+
+                $pdo->commit();
+            } catch (Throwable $error) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $error;
+            }
+
+            $_SESSION['user_name'] = $name;
+            $_SESSION['user_avatar'] = $avatar;
+
+            echo json_encode([
+                'status' => 'success',
+                'message' => 'Your profile has been saved.',
+                'user' => ['name' => $name, 'avatar' => $avatar]
+            ]);
+            break;
+
         case 'login':
             $email = trim($_POST['email'] ?? '');
-            $password = trim($_POST['password'] ?? '');
+            $password = $_POST['password'] ?? '';
 
             if (empty($email) || empty($password)) {
                 echo json_encode(['status' => 'error', 'message' => 'Please provide both email and password.']);
@@ -62,6 +119,7 @@ try {
                 exit;
             }
 
+            session_regenerate_id(true);
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_email'] = $user['email'];
@@ -91,7 +149,7 @@ try {
         case 'register':
             $name = trim($_POST['name'] ?? '');
             $email = trim($_POST['email'] ?? '');
-            $password = trim($_POST['password'] ?? '');
+            $password = $_POST['password'] ?? '';
             $avatar = trim($_POST['avatar'] ?? 'assets/avatar_rene.svg');
 
             if (empty($name) || empty($email) || empty($password)) {
@@ -101,6 +159,11 @@ try {
 
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 echo json_encode(['status' => 'error', 'message' => 'Please enter a valid email address.']);
+                exit;
+            }
+
+            if (strlen($name) > 100 || strlen($email) > 150 || strlen($password) < 8) {
+                echo json_encode(['status' => 'error', 'message' => 'Use a name and email within the allowed length and a password of at least 8 characters.']);
                 exit;
             }
 
@@ -121,6 +184,7 @@ try {
             $pIns->execute([$newUserId, 'Kids', 'assets/avatar_kids.svg', 1]);
             $pIns->execute([$newUserId, 'Guest', 'assets/avatar_guest.svg', 0]);
 
+            session_regenerate_id(true);
             $_SESSION['user_id'] = $newUserId;
             $_SESSION['user_name'] = $name;
             $_SESSION['user_email'] = $email;
@@ -165,6 +229,8 @@ try {
             $userCount = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
             $questionCount = (int) $pdo->query("SELECT COUNT(*) FROM questions")->fetchColumn();
             $adminCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
+            $watchlistCount = (int) $pdo->query("SELECT COUNT(*) FROM watchlist")->fetchColumn();
+            $favoriteCount = (int) $pdo->query("SELECT COUNT(*) FROM favorites")->fetchColumn();
             $recentUsers = $pdo->query("SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 6")->fetchAll();
             $recentQuestions = $pdo->query("SELECT id, name, category, status, created_at FROM questions ORDER BY created_at DESC LIMIT 6")->fetchAll();
 
@@ -174,7 +240,9 @@ try {
                     'movies' => $movieCount,
                     'users' => $userCount,
                     'questions' => $questionCount,
-                    'admins' => $adminCount
+                    'admins' => $adminCount,
+                    'watchlist_items' => $watchlistCount,
+                    'favorites' => $favoriteCount
                 ],
                 'recent_users' => $recentUsers,
                 'recent_questions' => $recentQuestions
@@ -305,9 +373,17 @@ try {
             $similar = $simStmt->fetchAll();
 
             
-            $watchStmt = $pdo->prepare("SELECT id FROM watchlist WHERE user_profile = ? AND movie_id = ?");
-            $watchStmt->execute([$profile, $id]);
-            $inWatchlist = (bool)$watchStmt->fetch();
+            $inWatchlist = false;
+            $isFavorite = false;
+            if (!empty($_SESSION['user_id'])) {
+                $watchStmt = $pdo->prepare("SELECT id FROM watchlist WHERE owner_user_id = ? AND user_profile = ? AND movie_id = ?");
+                $watchStmt->execute([$_SESSION['user_id'], $profile, $id]);
+                $inWatchlist = (bool) $watchStmt->fetch();
+
+                $favoriteStmt = $pdo->prepare("SELECT id FROM favorites WHERE user_id = ? AND movie_id = ?");
+                $favoriteStmt->execute([$_SESSION['user_id'], $id]);
+                $isFavorite = (bool) $favoriteStmt->fetch();
+            }
 
             echo json_encode([
                 'status' => 'success',
@@ -315,50 +391,103 @@ try {
                     'movie' => $movie,
                     'reviews' => $reviews,
                     'similar' => $similar,
-                    'in_watchlist' => $inWatchlist
+                    'in_watchlist' => $inWatchlist,
+                    'is_favorite' => $isFavorite
                 ]
             ]);
             break;
 
         case 'toggle_watchlist':
+            if (empty($_SESSION['user_id'])) {
+                echo json_encode(['status' => 'error', 'message' => 'Please sign in to save movies to your list.']);
+                exit;
+            }
+
             $movieId = intval($_POST['movie_id'] ?? 0);
             if (!$movieId) {
                 echo json_encode(['status' => 'error', 'message' => 'Invalid movie ID']);
                 exit;
             }
 
-            $check = $pdo->prepare("SELECT id FROM watchlist WHERE user_profile = ? AND movie_id = ?");
-            $check->execute([$profile, $movieId]);
+            $check = $pdo->prepare("SELECT id FROM watchlist WHERE owner_user_id = ? AND user_profile = ? AND movie_id = ?");
+            $check->execute([$_SESSION['user_id'], $profile, $movieId]);
             $existing = $check->fetch();
 
             if ($existing) {
-                $del = $pdo->prepare("DELETE FROM watchlist WHERE user_profile = ? AND movie_id = ?");
-                $del->execute([$profile, $movieId]);
+                $del = $pdo->prepare("DELETE FROM watchlist WHERE owner_user_id = ? AND user_profile = ? AND movie_id = ?");
+                $del->execute([$_SESSION['user_id'], $profile, $movieId]);
                 $inList = false;
             } else {
-                $ins = $pdo->prepare("INSERT INTO watchlist (user_profile, movie_id) VALUES (?, ?)");
-                $ins->execute([$profile, $movieId]);
+                $ins = $pdo->prepare("INSERT INTO watchlist (owner_user_id, user_profile, movie_id) VALUES (?, ?, ?)");
+                $ins->execute([$_SESSION['user_id'], $profile, $movieId]);
                 $inList = true;
             }
 
-            
-            $cnt = $pdo->prepare("SELECT COUNT(*) FROM watchlist WHERE user_profile = ?");
-            $cnt->execute([$profile]);
+            $cnt = $pdo->prepare("SELECT COUNT(*) FROM watchlist WHERE owner_user_id = ? AND user_profile = ?");
+            $cnt->execute([$_SESSION['user_id'], $profile]);
             $totalCount = $cnt->fetchColumn();
 
             echo json_encode(['status' => 'success', 'in_watchlist' => $inList, 'total_count' => $totalCount]);
             break;
 
         case 'get_watchlist':
+            if (empty($_SESSION['user_id'])) {
+                echo json_encode(['status' => 'error', 'message' => 'Please sign in to view your list.']);
+                exit;
+            }
+
             $stmt = $pdo->prepare("
                 SELECT m.* FROM movies m
                 INNER JOIN watchlist w ON m.id = w.movie_id
-                WHERE w.user_profile = ?
+                WHERE w.owner_user_id = ? AND w.user_profile = ?
                 ORDER BY w.created_at DESC
             ");
-            $stmt->execute([$profile]);
+            $stmt->execute([$_SESSION['user_id'], $profile]);
             $movies = $stmt->fetchAll();
             echo json_encode(['status' => 'success', 'data' => $movies]);
+            break;
+
+        case 'toggle_favorite':
+            if (empty($_SESSION['user_id'])) {
+                echo json_encode(['status' => 'error', 'message' => 'Please sign in to save favorites.']);
+                exit;
+            }
+
+            $movieId = intval($_POST['movie_id'] ?? 0);
+            if (!$movieId) {
+                echo json_encode(['status' => 'error', 'message' => 'Invalid movie ID.']);
+                exit;
+            }
+
+            $check = $pdo->prepare("SELECT id FROM favorites WHERE user_id = ? AND movie_id = ?");
+            $check->execute([$_SESSION['user_id'], $movieId]);
+            if ($check->fetch()) {
+                $delete = $pdo->prepare("DELETE FROM favorites WHERE user_id = ? AND movie_id = ?");
+                $delete->execute([$_SESSION['user_id'], $movieId]);
+                $isFavorite = false;
+            } else {
+                $insert = $pdo->prepare("INSERT INTO favorites (user_id, movie_id) VALUES (?, ?)");
+                $insert->execute([$_SESSION['user_id'], $movieId]);
+                $isFavorite = true;
+            }
+
+            echo json_encode(['status' => 'success', 'is_favorite' => $isFavorite]);
+            break;
+
+        case 'get_favorites':
+            if (empty($_SESSION['user_id'])) {
+                echo json_encode(['status' => 'error', 'message' => 'Please sign in to view your favorites.']);
+                exit;
+            }
+
+            $stmt = $pdo->prepare("
+                SELECT m.* FROM movies m
+                INNER JOIN favorites f ON m.id = f.movie_id
+                WHERE f.user_id = ?
+                ORDER BY f.created_at DESC
+            ");
+            $stmt->execute([$_SESSION['user_id']]);
+            echo json_encode(['status' => 'success', 'data' => $stmt->fetchAll()]);
             break;
 
         case 'add_review':

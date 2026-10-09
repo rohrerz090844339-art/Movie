@@ -151,11 +151,12 @@ DROP TABLE IF EXISTS `watchlist`;
 ;
 CREATE TABLE `watchlist` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `owner_user_id` int(11) NOT NULL DEFAULT 0,
   `user_profile` varchar(50) DEFAULT 'Rene',
   `movie_id` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `user_movie` (`user_profile`,`movie_id`)
+  UNIQUE KEY `owner_profile_movie` (`owner_user_id`,`user_profile`,`movie_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 ;
 
@@ -177,4 +178,47 @@ UNLOCK TABLES;
 ;
 ;
 
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `avatar` varchar(255) DEFAULT 'assets/avatar_rene.svg',
+  `active_profile` varchar(50) DEFAULT 'Rene',
+  `role` varchar(20) NOT NULL DEFAULT 'user',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE IF NOT EXISTS `user_profiles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `profile_name` varchar(50) NOT NULL,
+  `avatar_url` varchar(255) NOT NULL,
+  `is_kids` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_profile_unique` (`user_id`,`profile_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `questions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `category` varchar(100) NOT NULL DEFAULT 'General',
+  `question` text NOT NULL,
+  `answer` text DEFAULT NULL,
+  `status` varchar(20) DEFAULT 'Answered',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `favorites` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `movie_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_favorite` (`user_id`,`movie_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

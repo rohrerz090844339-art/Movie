@@ -2,8 +2,13 @@
 session_start();
 require_once __DIR__ . '/db.php';
 
-if (empty($_SESSION['user_id']) || ($_SESSION['user_role'] ?? 'user') !== 'admin') {
-    header('Location: index.php');
+if (empty($_SESSION['user_id'])) {
+    header('Location: index.php?admin_login=1');
+    exit;
+}
+
+if (($_SESSION['user_role'] ?? 'user') !== 'admin') {
+    header('Location: index.php?admin_access=denied');
     exit;
 }
 
@@ -11,6 +16,8 @@ $movieCount = (int) $pdo->query('SELECT COUNT(*) FROM movies')->fetchColumn();
 $userCount = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
 $questionCount = (int) $pdo->query('SELECT COUNT(*) FROM questions')->fetchColumn();
 $adminCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
+$watchlistCount = (int) $pdo->query('SELECT COUNT(*) FROM watchlist')->fetchColumn();
+$favoriteCount = (int) $pdo->query('SELECT COUNT(*) FROM favorites')->fetchColumn();
 $recentUsers = $pdo->query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 6')->fetchAll();
 $recentQuestions = $pdo->query('SELECT id, name, category, status, created_at FROM questions ORDER BY created_at DESC LIMIT 6')->fetchAll();
 ?>
@@ -176,6 +183,14 @@ $recentQuestions = $pdo->query('SELECT id, name, category, status, created_at FR
             <div class="stat-card">
                 <div class="stat-label">Admins</div>
                 <div class="stat-value"><?= $adminCount ?></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Saved to My List</div>
+                <div class="stat-value"><?= $watchlistCount ?></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Favorites</div>
+                <div class="stat-value"><?= $favoriteCount ?></div>
             </div>
         </div>
 

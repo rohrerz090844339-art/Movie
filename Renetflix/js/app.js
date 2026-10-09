@@ -1,4 +1,5 @@
 ﻿const API_URL = 'api.php';
+let adminLoginRequested = false;
 
 function showToast(message, type = 'success') {
   let toast = document.getElementById('renetflixToast');
@@ -45,6 +46,15 @@ function apiRequest(action, data = {}, method = 'POST') {
 function openAuthModal(mode = 'login') {
   const modal = document.getElementById('authModal');
   if (!modal) return;
+  if (!adminLoginRequested) {
+    document.querySelectorAll('.auth-tab-btn').forEach((button) => {
+      if (button.dataset.authTab === 'register') button.style.display = '';
+    });
+    const notice = document.getElementById('adminAuthNotice');
+    if (notice) notice.style.display = 'none';
+    const submitButton = document.querySelector('#loginForm button[type="submit"]');
+    if (submitButton) submitButton.textContent = 'Sign In';
+  }
   const tabs = document.querySelectorAll('.auth-tab-btn');
   const forms = document.querySelectorAll('.auth-panel');
   tabs.forEach((button) => {
@@ -62,6 +72,26 @@ function openAuthModal(mode = 'login') {
 function closeModal(modalId) {
   const modal = document.getElementById(modalId);
   if (modal) modal.classList.remove('active');
+  if (modalId === 'authModal') {
+    adminLoginRequested = false;
+    document.querySelectorAll('.auth-tab-btn').forEach((button) => {
+      if (button.dataset.authTab === 'register') button.style.display = '';
+    });
+    const notice = document.getElementById('adminAuthNotice');
+    if (notice) notice.style.display = 'none';
+    const submitButton = document.querySelector('#loginForm button[type="submit"]');
+    if (submitButton) submitButton.textContent = 'Sign In';
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
 }
 
 function handleAuthSubmit(event) {
@@ -69,9 +99,20 @@ function handleAuthSubmit(event) {
   const form = event.target;
   const mode = form.dataset.authMode;
   const payload = Object.fromEntries(new FormData(form).entries());
-
   apiRequest(mode, payload).then((result) => {
     if (result.status === 'success') {
+      if (adminLoginRequested && mode === 'login') {
+        if (result.user?.role === 'admin') {
+          window.location.href = 'admin.php';
+        } else {
+          adminLoginRequested = false;
+          window.history.replaceState({}, '', 'index.php');
+          closeModal('authModal');
+          showToast('This account does not have admin access.', 'error');
+        }
+        return;
+      }
+
       showToast(result.message || 'Success');
       if (form.closest('#authModal')) closeModal('authModal');
       fetchAuthState();
@@ -101,25 +142,19 @@ function fetchAuthState() {
     const profileWrapper = document.getElementById('navProfileWrapper');
     if (signInButton) signInButton.style.display = loggedIn ? 'none' : 'inline-flex';
     if (profileWrapper) profileWrapper.style.display = loggedIn ? 'flex' : 'none';
+    if (loggedIn) {
+      loadSavedMovies();
+    } else {
+      document.getElementById('myListRow').style.display = 'none';
+      document.getElementById('myFavoritesRow').style.display = 'none';
+      const badge = document.getElementById('myListCountBadge');
+      if (badge) badge.textContent = '0';
+    }
     if (loggedIn && result.user) {
-      const currentName = document.getElementById('currentProfileNameDisplay');
-      if (currentName) currentName.textContent = result.user.name || 'Rene';
       const currentAvatar = document.getElementById('currentProfileAvatar');
       if (currentAvatar && result.user.avatar) currentAvatar.src = result.user.avatar;
       const profileName = document.getElementById('profileAvatarBtn');
       if (profileName) profileName.title = result.user.name || 'Profile';
-    }
-  });
-}
-
-function switchProfile(profileName) {
-  apiRequest('switch_profile', { profile_name: profileName }).then((result) => {
-    if (result.status === 'success') {
-      showToast('Profile switched to ' + profileName + '.');
-      const name = document.getElementById('currentProfileNameDisplay');
-      if (name) name.textContent = profileName;
-    } else {
-      showToast(result.message || 'Unable to switch profile.', 'error');
     }
   });
 }
@@ -163,19 +198,149 @@ function submitSupportQuestion(event) {
   });
 }
 
+function openProfileEditor() {
+  const profileName = document.getElementById('profileDisplayName');
+  const currentName = document.getElementById('profileMenuUserName');
+  if (profileName && currentName) profileName.value = currentName.textContent.trim();
+
+  const currentAvatar = document.getElementById('currentProfileAvatar');
+  if (currentAvatar) {
+    const selectedAvatar = Array.from(document.querySelectorAll('#profileForm input[name="avatar"]'))
+      .find((input) => input.value === currentAvatar.getAttribute('src'));
+    if (selectedAvatar) selectedAvatar.checked = true;
+  }
+  closeProfileMenu();
+  document.getElementById('profileModal')?.classList.add('active');
+}
+
+function closeProfileMenu() {
+  const wrapper = document.getElementById('navProfileWrapper');
+  if (wrapper) wrapper.classList.remove('profile-menu-open');
+}
+
+function submitProfile(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const payload = Object.fromEntries(new FormData(form).entries());
+  apiRequest('update_profile', payload).then((result) => {
+    if (result.status !== 'success') {
+      showToast(result.message || 'Unable to save profile.', 'error');
+      return;
+    }
+
+    const name = result.user.name;
+    const avatar = result.user.avatar;
+    document.querySelectorAll('#profileMenuUserName').forEach((element) => {
+      element.textContent = name;
+    });
+    document.querySelectorAll('#currentProfileAvatar').forEach((image) => {
+      image.src = avatar;
+      image.alt = name;
+    });
+    const avatarButton = document.getElementById('profileAvatarBtn');
+    if (avatarButton) avatarButton.title = name;
+    const dropdownAvatar = document.getElementById('profileDropdownMenu')?.querySelector('.profile-dropdown-header img');
+    if (dropdownAvatar) {
+      dropdownAvatar.src = avatar;
+      dropdownAvatar.alt = name;
+    }
+    closeModal('profileModal');
+    showToast(result.message || 'Profile saved.');
+  });
+}
+
 function toggleWatchlist(movieId, button) {
   apiRequest('toggle_watchlist', { movie_id: movieId }).then((result) => {
     if (result.status === 'success') {
-      const target = button?.querySelector('i') || button;
       const active = result.in_watchlist;
-      target.classList.toggle('fa-plus', !active);
-      target.classList.toggle('fa-check', active);
+      updateActionButtons('watchlist', movieId, active);
       const badge = document.getElementById('myListCountBadge');
       if (badge) badge.textContent = result.total_count || 0;
       showToast(active ? 'Added to My List.' : 'Removed from My List.');
+      loadSavedMovies();
     } else {
-      showToast(result.message || 'Unable to update My List.', 'error');
+      if (result.message?.includes('sign in')) {
+        openAuthModal('login');
+      } else {
+        showToast(result.message || 'Unable to update My List.', 'error');
+      }
     }
+  });
+}
+
+function toggleFavorite(movieId, button) {
+  apiRequest('toggle_favorite', { movie_id: movieId }).then((result) => {
+    if (result.status === 'success') {
+      updateActionButtons('favorite', movieId, result.is_favorite);
+      showToast(result.is_favorite ? 'Added to Favorites.' : 'Removed from Favorites.');
+      loadSavedMovies();
+    } else if (result.message?.includes('sign in')) {
+      openAuthModal('login');
+    } else {
+      showToast(result.message || 'Unable to update Favorites.', 'error');
+    }
+  });
+}
+
+function updateActionButtons(type, movieId, active) {
+  const attribute = type === 'watchlist' ? 'data-watchlist-id' : 'data-favorite-id';
+  document.querySelectorAll(`[${attribute}="${movieId}"]`).forEach((button) => {
+    const icon = button.querySelector('i');
+    if (!icon) return;
+    icon.classList.toggle('fa-plus', type === 'watchlist' && !active);
+    icon.classList.toggle('fa-check', type === 'watchlist' && active);
+    icon.classList.toggle('far', type === 'favorite' && !active);
+    icon.classList.toggle('fas', type === 'favorite' && active);
+    icon.classList.toggle('fa-thumbs-up', type === 'favorite');
+    button.title = type === 'watchlist'
+      ? (active ? 'Remove from My List' : 'Add to My List')
+      : (active ? 'Remove from Favorites' : 'Add to Favorites');
+  });
+}
+
+function renderSavedMovies(track, movies, type) {
+  if (!track) return;
+  track.innerHTML = movies.map((movie) => `
+    <article class="saved-movie-card">
+      <img src="${escapeHtml(movie.poster_url)}" alt="${escapeHtml(movie.title)}" loading="lazy">
+      <div class="saved-movie-info">
+        <button class="saved-movie-title" data-open-movie="${Number(movie.id)}">${escapeHtml(movie.title)}</button>
+        <span>${escapeHtml(movie.release_year)}</span>
+        <button class="saved-movie-remove" data-saved-action="${type}" data-movie-id="${Number(movie.id)}">
+          <i class="fas ${type === 'favorite' ? 'fa-heart' : 'fa-bookmark'}"></i>
+          Remove
+        </button>
+      </div>
+    </article>
+  `).join('');
+  track.closest('.row-container').style.display = movies.length ? '' : 'none';
+}
+
+function loadSavedMovies() {
+  Promise.all([
+    apiRequest('get_watchlist', {}, 'GET'),
+    apiRequest('get_favorites', {}, 'GET')
+  ]).then(([watchlist, favorites]) => {
+    if (watchlist.status !== 'success' || favorites.status !== 'success') {
+      showToast(watchlist.message || favorites.message || 'Unable to load your saved movies.', 'error');
+      return;
+    }
+
+    const moviesOnList = watchlist.data || [];
+    const favoriteMovies = favorites.data || [];
+    const badge = document.getElementById('myListCountBadge');
+    if (badge) badge.textContent = String(moviesOnList.length);
+    renderSavedMovies(document.getElementById('myListTrack'), moviesOnList, 'watchlist');
+    renderSavedMovies(document.getElementById('myFavoritesTrack'), favoriteMovies, 'favorite');
+
+    document.querySelectorAll('[data-watchlist-id]').forEach((button) => {
+      const movieId = Number(button.dataset.watchlistId);
+      updateActionButtons('watchlist', movieId, moviesOnList.some((movie) => Number(movie.id) === movieId));
+    });
+    document.querySelectorAll('[data-favorite-id]').forEach((button) => {
+      const movieId = Number(button.dataset.favoriteId);
+      updateActionButtons('favorite', movieId, favoriteMovies.some((movie) => Number(movie.id) === movieId));
+    });
   });
 }
 
@@ -217,6 +382,18 @@ function openMovieDetails(movieId) {
     const playBtn = document.getElementById('modalPlayBtn');
     if (playBtn) {
       playBtn.onclick = () => openCinemaPlayer(movie.id, movie.title, movie.video_url);
+    }
+    const watchlistButton = document.getElementById('modalWatchlistBtn');
+    if (watchlistButton) {
+      watchlistButton.dataset.watchlistId = movie.id;
+      watchlistButton.onclick = () => toggleWatchlist(movie.id, watchlistButton);
+      updateActionButtons('watchlist', movie.id, result.data.in_watchlist);
+    }
+    const favoriteButton = document.getElementById('modalFavoriteBtn');
+    if (favoriteButton) {
+      favoriteButton.dataset.favoriteId = movie.id;
+      favoriteButton.onclick = () => toggleFavorite(movie.id, favoriteButton);
+      updateActionButtons('favorite', movie.id, result.data.is_favorite);
     }
 
     const reviewList = document.getElementById('modalReviewsList');
@@ -275,6 +452,24 @@ function initMovieInteractions() {
     });
   });
 
+  document.addEventListener('click', (event) => {
+    const openButton = event.target.closest('[data-open-movie]');
+    if (openButton) {
+      openMovieDetails(openButton.dataset.openMovie);
+      return;
+    }
+
+    const removeButton = event.target.closest('[data-saved-action]');
+    if (removeButton) {
+      const movieId = Number(removeButton.dataset.movieId);
+      if (removeButton.dataset.savedAction === 'watchlist') {
+        toggleWatchlist(movieId, removeButton);
+      } else {
+        toggleFavorite(movieId, removeButton);
+      }
+    }
+  });
+
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
     searchInput.addEventListener('input', (event) => {
@@ -296,13 +491,13 @@ function initModals() {
   document.querySelectorAll('.modal-close-btn').forEach((button) => {
     button.addEventListener('click', () => {
       const modal = button.closest('.modal-backdrop');
-      if (modal) modal.classList.remove('active');
+      if (modal) closeModal(modal.id);
     });
   });
 
   document.querySelectorAll('.modal-backdrop').forEach((modal) => {
     modal.addEventListener('click', (event) => {
-      if (event.target === modal) modal.classList.remove('active');
+      if (event.target === modal) closeModal(modal.id);
     });
   });
 
@@ -317,19 +512,9 @@ function initAuthForms() {
 
   document.getElementById('loginForm')?.addEventListener('submit', handleAuthSubmit);
   document.getElementById('registerForm')?.addEventListener('submit', handleAuthSubmit);
+  document.getElementById('profileForm')?.addEventListener('submit', submitProfile);
   document.getElementById('supportForm')?.addEventListener('submit', submitSupportQuestion);
 
-  document.querySelectorAll('.btn-demo-login').forEach((button) => {
-    button.addEventListener('click', () => {
-      const email = button.dataset.demoEmail;
-      const password = button.dataset.demoPassword || 'password123';
-      const inputEmail = document.querySelector('#loginForm input[name="email"]');
-      const inputPassword = document.querySelector('#loginForm input[name="password"]');
-      if (inputEmail) inputEmail.value = email;
-      if (inputPassword) inputPassword.value = password;
-      openAuthModal('login');
-    });
-  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -340,14 +525,44 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchAuthState();
   fetchQuestions();
 
+  const pageQuery = new URLSearchParams(window.location.search);
+  if (pageQuery.has('admin_login')) {
+    openAdminLogin();
+  }
+  if (pageQuery.has('admin_access')) {
+    showToast('Please sign in with an admin account to access the dashboard.', 'error');
+    window.history.replaceState({}, '', 'index.php');
+  }
+  if (pageQuery.has('open_support')) {
+    openQuestionsModal();
+    window.history.replaceState({}, '', 'index.php');
+  }
+
   const navSignInButton = document.getElementById('navSignInBtn');
   if (navSignInButton) navSignInButton.addEventListener('click', () => openAuthModal('login'));
+  document.querySelectorAll('[data-admin-login-link]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      openAdminLogin();
+    });
+  });
 
   const closeAuth = document.getElementById('closeAuthModal');
   if (closeAuth) closeAuth.addEventListener('click', () => closeModal('authModal'));
 
   const closeSupport = document.getElementById('closeSupportModal');
   if (closeSupport) closeSupport.addEventListener('click', () => closeModal('questionModal'));
+  document.getElementById('editProfileBtn')?.addEventListener('click', openProfileEditor);
+  document.getElementById('closeProfileModal')?.addEventListener('click', () => closeModal('profileModal'));
+
+  const profileWrapper = document.getElementById('navProfileWrapper');
+  const profileButton = document.getElementById('profileAvatarBtn');
+  profileButton?.addEventListener('click', () => {
+    profileWrapper?.classList.toggle('profile-menu-open');
+  });
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('#navProfileWrapper')) closeProfileMenu();
+  });
 
   document.querySelectorAll('.footer-social-btn').forEach((link) => {
     link.addEventListener('click', (event) => {
@@ -360,3 +575,15 @@ document.addEventListener('DOMContentLoaded', () => {
     link.addEventListener('click', (event) => event.preventDefault());
   });
 });
+
+function openAdminLogin() {
+  adminLoginRequested = true;
+  openAuthModal('login');
+  const notice = document.getElementById('adminAuthNotice');
+  if (notice) notice.style.display = 'block';
+  document.querySelectorAll('.auth-tab-btn').forEach((button) => {
+    if (button.dataset.authTab === 'register') button.style.display = 'none';
+  });
+  const submitButton = document.querySelector('#loginForm button[type="submit"]');
+  if (submitButton) submitButton.textContent = 'Sign In to Admin Dashboard';
+}
